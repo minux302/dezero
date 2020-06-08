@@ -7,6 +7,12 @@ def as_array(x):
     return x
 
 
+def numerical_diff(f, x, eps=1e-4):
+    y0 = f(Variable(as_array(x.data - eps)))
+    y1 = f(Variable(as_array(x.data + eps)))
+    return (y1.data - y0.data) / (2 * eps)
+
+
 class Variable:
     def __init__(self, data):
         if data is not None:
@@ -74,9 +80,3 @@ def square(x):
 
 def exp(x):
     return Exp()(x)
-
-
-def numerical_diff(f, x, eps=1e-4):
-    y0 = f(Variable(x.data - eps))
-    y1 = f(Variable(x.data + eps))
-    return (y1.data - y0.data) / (2 * eps)
