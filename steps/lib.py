@@ -26,6 +26,9 @@ class Variable:
     def set_creator(self, func):
         self.creator = func
 
+    def cleargrad(self):
+        self.grad = None
+
     def backward(self):
         if self.grad is None:
             self.grad = np.ones_like(self.data)
@@ -33,10 +36,23 @@ class Variable:
         funcs = [self.creator]
         while funcs:
             f = funcs.pop()
-            x, y = f.input, f.output
-            x.grad = f.backward(y.grad)
-            if x.creator is not None:
-                funcs.append(x.creator)
+            gys = [output.grad for output in f.outputs]
+            gxs = f.backward(*gys)
+            if not isinstance(gxs, tuple):
+                gxs = (gxs,)
+
+            for x, gx in zip(f.inputs, gxs):
+                if x.grad is None:
+                    x.grad = gx
+                    # import copy
+                    # x.grad = copy.deepcopy(gx)
+                else:
+                    # print(x.grad)
+                    x.grad = x.grad + gx
+                    # x.grad += gx
+
+                if x.creator is not None:
+                    funcs.append(x.creator)
 
 
 class Function:
@@ -65,7 +81,7 @@ class Square(Function):
         return x ** 2
 
     def backward(self, gy):
-        x = self.input.data
+        x = self.inputs[0].data
         return 2 * x * gy
 
 
@@ -81,6 +97,9 @@ class Exp(Function):
 class Add(Function):
     def forward(self, x0, x1):
         return x0 + x1
+
+    def backward(self, gy):
+        return gy, gy
 
 
 def square(x):
