@@ -116,6 +116,12 @@ class Variable:
         p = str(self.data).replace('\n', '\n' + ' ' * 9)
         return f'variable({p})'
 
+    def __mul__(self, other):
+        return mul(self, other)
+
+    def __add__(self, other):
+        return add(self, other)
+
 
 class Function:
     def __call__(self, *inputs):
@@ -166,6 +172,14 @@ class Add(Function):
         return gy, gy
 
 
+class Mul(Function):
+    def forward(self, x0, x1):
+        return x0 * x1
+
+    def backward(self, gy):
+        return gy * self.inputs[1].data, gy * self.inputs[0].data
+
+
 def square(x):
     return Square()(x)
 
@@ -176,3 +190,7 @@ def exp(x):
 
 def add(x0, x1):
     return Add()(x0, x1)
+
+
+def mul(x0, x1):
+    return Mul()(x0, x1)
