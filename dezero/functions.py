@@ -20,9 +20,22 @@ class Cos(Function):
         return gy * -sin(x)
 
 
+class Tanh(Function):
+    def forward(self, x):
+        return np.tanh(x)
+
+    def backward(self, gy):
+        y = self.outputs[0]()  # weakref
+        return gy * (1 - y * y)
+
+
 def sin(x):
     return Sin()(x)
 
 
 def cos(x):
     return Cos()(x)
+
+
+def tanh(x):
+    return Tanh()(x)
