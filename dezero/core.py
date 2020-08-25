@@ -14,6 +14,9 @@ def as_array(x):
 def as_variable(obj):
     if isinstance(obj, Variable):
         return obj
+    # ??? adhoc
+    if isinstance(obj, int) or isinstance(obj, float):
+        obj = np.array(obj)
     return Variable(obj)
 
 
@@ -47,7 +50,7 @@ class Variable:
     def __init__(self, data, name=None):
         if data is not None:
             if not isinstance(data, np.ndarray):
-                raise TypeError(f'{type(data)} is not supported')
+                raise TypeError('{} is not supported'.format(type(data)))
 
         self.data = data
         self.name = name
@@ -179,6 +182,10 @@ class Function:
 
     def backward(self, gys):
         raise NotImplementedError()
+
+
+class Parameter(Variable):
+    pass
 
 
 class Add(Function):
