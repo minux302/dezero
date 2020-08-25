@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # y = rosenbrock(x0, x1)
     # y.backward()
     # print(x0.grad, x1.grad)
-    lr = 0.001
+    lr = 0.005
     iters = 10000
     for i in range(iters):
         print(x0, x1)

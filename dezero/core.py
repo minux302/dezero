@@ -1,4 +1,5 @@
 import contextlib
+import dezero
 import weakref
 
 import numpy as np
@@ -126,6 +127,21 @@ class Variable:
         p = str(self.data).replace('\n', '\n' + ' ' * 9)
         return f'variable({p})'
 
+    def reshape(self, *shape):
+        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+            shape = shape[0]
+        return dezero.functions.reshape(self, shape)
+
+    def transpose(self):
+        return dezero.functions.transpose(self)
+
+    @property
+    def T(self):
+        return dezero.functions.transpose(self)
+
+    def sum(self, axis=None, keepdims=False):
+        return dezero.functions.sum(self, axis, keepdims)
+
 
 def setup_variable():
     Variable.__add__ = add
@@ -165,38 +181,41 @@ class Function:
         raise NotImplementedError()
 
 
-class Square(Function):
-    def forward(self, x):
-        return x ** 2
-
-    def backward(self, gy):
-        x = self.inputs[0]
-        return 2 * x * gy
-
-
-class Exp(Function):
-    def forward(self, x):
-        return np.exp(x)
-
-    def backward(self, gy):
-        x = self.input
-        return np.exp(x) * gy
-
-
 class Add(Function):
     def forward(self, x0, x1):
-        return x0 + x1
+        self.x0_shape, self.x1_shape = x0.shape, x1.shape
+        y = x0 + x1
+        return y
 
     def backward(self, gy):
-        return gy, gy
+        gx0, gx1 = gy, gy
+        if self.x0_shape != self.x1_shape:  # for broadcaset
+            gx0 = dezero.functions.sum_to(gx0, self.x0_shape)
+            gx1 = dezero.functions.sum_to(gx1, self.x1_shape)
+        return gx0, gx1
+
+
+def add(x0, x1):
+    return Add()(x0, x1)
 
 
 class Mul(Function):
     def forward(self, x0, x1):
-        return x0 * x1
+        y = x0 * x1
+        return y
 
     def backward(self, gy):
-        return gy * self.inputs[1], gy * self.inputs[0]
+        x0, x1 = self.inputs
+        gx0 = gy * x1
+        gx1 = gy * x0
+        if x0.shape != x1.shape:  # for broadcast
+            gx0 = dezero.functions.sum_to(gx0, x0.shape)
+            gx1 = dezero.functions.sum_to(gx1, x1.shape)
+        return gx0, gx1
+
+
+def mul(x0, x1):
+    return Mul()(x0, x1)
 
 
 class Neg(Function):
@@ -207,21 +226,54 @@ class Neg(Function):
         return -gy
 
 
+def neg(x):
+    return Neg()(x)
+
+
 class Sub(Function):
     def forward(self, x0, x1):
-        return x0 - x1
+        self.x0_shape, self.x1_shape = x0.shape, x1.shape
+        y = x0 - x1
+        return y
 
     def backward(self, gy):
-        return gy, -gy
+        gx0 = gy
+        gx1 = -gy
+        if self.x0_shape != self.x1_shape:  # for broadcast
+            gx0 = dezero.functions.sum_to(gx0, self.x0_shape)
+            gx1 = dezero.functions.sum_to(gx1, self.x1_shape)
+        return gx0, gx1
+
+
+def sub(x0, x1):
+    return Sub()(x0, x1)
+
+
+def rsub(x0, x1):
+    return Sub()(x1, x0)
 
 
 class Div(Function):
     def forward(self, x0, x1):
-        return x0 / x1
+        y = x0 / x1
+        return y
 
     def backward(self, gy):
-        x0, x1 = self.inputs[0], self.inputs[1]
-        return gy / x1, gy * (-x0 / x1 ** 2)
+        x0, x1 = self.inputs
+        gx0 = gy / x1
+        gx1 = gy * (-x0 / x1 ** 2)
+        if x0.shape != x1.shape:  # for broadcast
+            gx0 = dezero.functions.sum_to(gx0, x0.shape)
+            gx1 = dezero.functions.sum_to(gx1, x1.shape)
+        return gx0, gx1
+
+
+def div(x0, x1):
+    return Div()(x0, x1)
+
+
+def rdiv(x0, x1):
+    return Div()(x1, x0)
 
 
 class Pow(Function):
@@ -229,68 +281,15 @@ class Pow(Function):
         self.c = c
 
     def forward(self, x):
-        return x ** self.c
+        y = x ** self.c
+        return y
 
     def backward(self, gy):
-        x = self.inputs[0]
+        x, = self.inputs
         c = self.c
-        return c * x ** (c - 1) * gy
-
-
-class Sin(Function):
-    def forward(self, x):
-        return np.sin(x)
-
-    def backward(self, gy):
-        x = self.inputs[0]
-        return gy * np.cos(x)
-
-
-def square(x):
-    return Square()(x)
-
-
-def exp(x):
-    return Exp()(x)
-
-
-def add(x0, x1):
-    x1 = as_array(x1)
-    return Add()(x0, x1)
-
-
-def mul(x0, x1):
-    x1 = as_array(x1)
-    return Mul()(x0, x1)
-
-
-def neg(x):
-    return Neg()(x)
-
-
-def sub(x0, x1):
-    x1 = as_array(x1)
-    return Sub()(x0, x1)
-
-
-def rsub(x0, x1):
-    x1 = as_array(x1)
-    return Sub()(x1, x0)
-
-
-def div(x0, x1):
-    x1 = as_array(x1)
-    return Div()(x0, x1)
-
-
-def rdiv(x0, x1):
-    x1 = as_array(x1)
-    return Div()(x1, x0)
+        gx = c * x ** (c - 1) * gy
+        return gx
 
 
 def pow(x, c):
     return Pow(c)(x)
-
-
-def sin(x):
-    return Sin()(x)

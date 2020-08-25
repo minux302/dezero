@@ -18,6 +18,7 @@ def gx2(x):
 if __name__ == "__main__":
     x = Variable(np.array(2.0))
     iters = 10
+    lr = 0.001
 
     for i in range(iters):
         print(i, x)
@@ -26,3 +27,4 @@ if __name__ == "__main__":
 
         y.backward()
         x.data -= x.grad / gx2(x.data)
+        # x.data -= x.grad * lr
