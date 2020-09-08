@@ -18,6 +18,9 @@ else:
     from dezero.core import as_variable
     from dezero.core import setup_variable
     from dezero.models import Model
+    from dezero.datasets import Dataset
+    from dezero.dataloaders import DataLoader
+    from dezero.dataloaders import SeqDataLoader
 
 
 setup_variable()
